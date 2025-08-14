@@ -11,23 +11,10 @@ app.use(helmet({
 app.use(express.json());
 app.use(cors({
     origin: [
-      "https://shubhprabhat.co.in",
-      "https://shubhprabhat.co.in",
-      "https://reporter.shubhprabhat.co.in",
-      "https://admin.shubhprabhat.co.in",
+      'http://localhost:8081',
         "http://localhost:5173",
         "http://localhost:5174",
-        "https://shubhprabhat-admin-panel.onrender.com",
-    
-       "https://shubh-prabhat-zuep.vercel.app",
-        "https://shubhprabhat-admin-panel-adhd.onrender.com",
-        "https://user-new.onrender.com/",
-        "https://user-new.onrender.com",
-      "  https://shubprabhat-userside2.onrender.com",
-      "https://shubh-prabhat-sgsj.vercel.app",
-      "https://shubprabhat-userside2.onrender.com",
-      "https://shubprabhat-userside3.onrender.com",
-      "https://shubh-prabhat.vercel.app"
+       
 
  
     ],
