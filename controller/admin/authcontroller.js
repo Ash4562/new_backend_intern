@@ -21,14 +21,15 @@ exports.register = async (req, res) => {
   }
 
   try {
-    // const normalizedEmail = email.toLowerCase().trim();
+    const normalizedEmail = email.toLowerCase().trim();
     const otp = generateOTP();
+    console.log("otp",otp);
     const otpExpiry = Date.now() + 5 * 60 * 1000;
 
     tempUsers.set( {
       Name: Name.trim(),
       contactNo: contactNo.trim(),
-      // email: normalizedEmail,
+      email: normalizedEmail,
       otp,
       otpExpiry,
     });
@@ -97,11 +98,11 @@ exports.verifyOtp = async (req, res) => {
       const newUser = await adminAuth.create({
         Name: tempEntry.Name,
         contactNo: tempEntry.contactNo,
-        // email: tempEntry.email,
-        // address: tempEntry.address,
+        email: tempEntry.email,
+        address: tempEntry.address,
       });
 
-      // tempUsers.delete(tempEntry.email); // delete using email key
+      tempUsers.delete(tempEntry.email); // delete using email key
 
       const token = jwt.sign({ userId: newUser._id }, process.env.JWT_KEY, { expiresIn: '1d' });
       return res.status(200).json({ message: 'Registration successful', token, user: newUser });
@@ -138,7 +139,7 @@ exports.resendOtp = async (req, res) => {
 
       tempEntry.otp = otp;
       tempEntry.otpExpiry = otpExpiry;
-      // tempUsers.set(tempEntry.email, tempEntry); 
+      tempUsers.set(tempEntry.email, tempEntry); 
       mobileToSend = contactNo;
     }
 

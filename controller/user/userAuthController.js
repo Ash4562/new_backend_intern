@@ -9,27 +9,26 @@ const tempUsers = new Map(); // key: email, value: { userData + otp }
 
 
 exports.register = async (req, res) => {
-  const { Name, contactNo, email, address } = req.body;
+  const { Name, contactNo } = req.body;
 
-  if (!Name || !contactNo || !email || !address) {
+  if (!Name || !contactNo) {
     return res.status(400).json({ error: 'All fields are required' });
   }
 
   try {
-    const normalizedEmail = email.toLowerCase().trim();
     const otp = generateOTP();
-    const otpExpiry = Date.now() + 5 * 60 * 1000;
+    const otpExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes
 
-    tempUsers.set(normalizedEmail, {
+    // Store with contactNo as key
+    tempUsers.set(contactNo.trim(), {
       Name: Name.trim(),
-      address: address.trim(),
       contactNo: contactNo.trim(),
-      email: normalizedEmail,
       otp,
       otpExpiry,
     });
 
     await sendOTP(contactNo.trim(), otp); // send OTP via SMS
+
     res.status(200).json({ message: 'OTP sent to mobile number' });
   } catch (err) {
     console.error('Register error:', err);
@@ -61,10 +60,18 @@ exports.login = async (req, res) => {
 
 exports.verifyOtp = async (req, res) => {
   const { contactNo, otp: inputOtp, isLogin } = req.body;
-  const otp = inputOtp.toString().trim();
+  const otp = inputOtp?.toString().trim();
 
   try {
+    // Clean up invalid entries before use
+    for (let [key, value] of tempUsers.entries()) {
+      if (!value || !value.contactNo) {
+        tempUsers.delete(key);
+      }
+    }
+
     if (isLogin) {
+      // Login flow
       const user = await User.findOne({ contactNo });
       if (!user || user.otp !== otp || Date.now() > user.otpExpiry) {
         return res.status(400).json({ error: 'Invalid or expired OTP' });
@@ -77,25 +84,26 @@ exports.verifyOtp = async (req, res) => {
       const token = jwt.sign({ userId: user._id }, process.env.JWT_KEY, { expiresIn: '7d' });
       return res.status(200).json({ message: 'Login successful', token, user });
     } else {
-      // For registration flow
-      const tempEntry = [...tempUsers.values()].find(u => u.contactNo === contactNo);
+      // Registration flow
+      const tempEntry = tempUsers.get(contactNo);
+
       if (!tempEntry || tempEntry.otp !== otp || Date.now() > tempEntry.otpExpiry) {
         return res.status(400).json({ error: 'Invalid or expired OTP' });
       }
 
       const alreadyExists = await User.findOne({ contactNo });
-      if (alreadyExists) return res.status(400).json({ error: 'User already registered' });
+      if (alreadyExists) {
+        return res.status(400).json({ error: 'User already registered' });
+      }
 
       const newUser = await User.create({
         Name: tempEntry.Name,
         contactNo: tempEntry.contactNo,
-        email: tempEntry.email,
-        address: tempEntry.address,
       });
 
-      tempUsers.delete(tempEntry.email); // delete using email key
+      tempUsers.delete(contactNo); // Consistent key usage
 
-      const token = jwt.sign({ userId: newUser._id }, process.env.JWT_KEY, { expiresIn: '1d' });
+      const token = jwt.sign({ userId: newUser._id }, process.env.JWT_KEY, { expiresIn: '7d' });
       return res.status(200).json({ message: 'Registration successful', token, user: newUser });
     }
   } catch (err) {
@@ -155,20 +163,20 @@ exports.logout = async (req, res) => {
 
 exports.updateUserDetails = async (req, res) => {
   const { userId } = req.params;
-  const { Name, contactNo, email } = req.body;
+  const { Name, contactNo} = req.body;
 
   try {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     // If updating email, ensure it's not taken by another user
-    if (email && email.trim().toLowerCase() !== user.email) {
-      const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
-      if (existingUser) {
-        return res.status(400).json({ error: 'Email already in use by another user' });
-      }
-      user.email = email.trim().toLowerCase();
-    }
+    // if (email && email.trim().toLowerCase() !== user.email) {
+    //   const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
+    //   if (existingUser) {
+    //     return res.status(400).json({ error: 'Email already in use by another user' });
+    //   }
+    //   user.email = email.trim().toLowerCase();
+    // }
 
     if (Name) user.Name = Name.trim();
     if (contactNo) user.contactNo = contactNo.trim();
